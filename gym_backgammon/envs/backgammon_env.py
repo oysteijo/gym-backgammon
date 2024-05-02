@@ -123,7 +123,7 @@ class BackgammonEnv(gym.Env):
 	def get_valid_actions(self, roll):
 		return self.game.get_valid_plays(self.current_agent, roll)
 
-	def get_opponent_agent(self):
+	def set_and_get_opponent_agent(self):
 		self.current_agent = self.game.get_opponent(self.current_agent)
 		return self.current_agent
 
