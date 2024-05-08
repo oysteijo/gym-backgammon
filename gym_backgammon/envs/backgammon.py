@@ -53,7 +53,7 @@ def init_board():
 
 class Backgammon:
 	def __init__(self):
-		self.board = init_board()  # 24 entries of the form: (2, BLACK) or (0, None), etc.
+		self.board = init_board()  # 24 entries of the form: (2, BLACK) or (0, None) or (3, WHITE), etc.
 		self.bar = [0, 0]  # Number of white checkers on bar, number of black checkers on bar
 		self.off = [0, 0]  # Number of white checkers off board, number of black checkers off board
 		self.players_home_positions = {WHITE: [5, 4, 3, 2, 1, 0], BLACK: [18, 19, 20, 21, 22, 23]}
@@ -1376,12 +1376,57 @@ class Backgammon:
 		# Return two entries, first is list of board positions for white (w/o number of checkers),
 		# second is for black
 		player_positions = [[], []]
-		for board_position, (checkers, player) in enumerate(self.board):
+		for board_position, (checkers, player_color) in enumerate(self.board):
 			# player is either None, 0 for white, 1 for black
-			if player is not None and board_position not in player_positions:
-				player_positions[player].append(board_position)
+			if player_color is not None and board_position not in player_positions:
+				player_positions[player_color].append(board_position)
 		return player_positions
-
+	
+	def prepare_pub_eval_state_for_color(self,
+	                                     color  # color for value 0 or 1
+	                                     ):
+		import torch
+		x = torch.zeros(28, dtype=torch.float32)
+		
+		x[0] = self.bar[1-color]  # opponent
+		x[25] = self.bar[color]
+		total_white = self.bar[0] + self.off[0]
+		total_black = self.bar[1] + self.off[1]
+		
+		for board_position, (checkers, player_color) in enumerate(self.board):
+			if player_color == 0:
+				total_white += checkers
+			elif player_color == 1:
+				total_black += checkers
+			elif player_color is None:
+				if checkers != 0:
+					raise ValueError("Invalid board state")
+			else:
+				raise NotImplementedError
+			
+			if color == 0:
+				if player_color == color:  # our color is positive
+					x[1 + board_position] = checkers
+				else:   # opponent color is negative
+					x[1 + board_position] = -checkers
+					
+			elif color == 1:  # if color is black, we need to flip the board for the linear model to work i guess
+				if player_color == color:  # our color is positive
+					x[24 - board_position] = checkers
+				else:   # opponent color is negative
+					x[24 - board_position] = -checkers
+			else:
+				raise NotImplementedError
+				
+		x[26] = self.off[color]
+		x[27] = self.off[1-color]
+		
+		if total_white != 15 or total_black != 15:
+			raise ValueError("Invalid board state")
+		
+		return x
+		
+	
 	def get_valid_plays(self, player, roll):
 		valid_plays = set()
 		top_valid_plays = set()
@@ -1461,29 +1506,22 @@ class Backgammon:
 		self.board, self.bar, self.off, self.players_positions = old_state.board[:], old_state.bar[:], old_state.off[:], old_state.players_positions[:]
 		self.state = BackgammonState(board=self.board, bar=self.bar, off=self.off, players_positions=self.players_positions)
 
-	# def get_winner(self):
-	# 	if self.off[WHITE] == 15:
-	# 		return WHITE
-	# 	elif self.off[BLACK] == 15:
-	# 		return BLACK
-	# 	return None
-	
 	def get_reward(self):
 		if self.off[WHITE] == 15:
-			if self.off[BLACK] == 0: # gammon case
-				return [2,0]
+			if self.off[BLACK] == 0:  # gammon case
+				return [2, 0]
 			else:
-				return [1,0]
+				return [1, 0]
 		elif self.off[BLACK] == 15:
-			if self.off[WHITE] == 0: # gammon case
-				return [0,2]
+			if self.off[WHITE] == 0:  # gammon case
+				return [0, 2]
 			else:
-				return [0,1]
+				return [0, 1]
 		else:
-			return [0,0]
+			return [0, 0]
 			
 
-	def get_opponent(self, player):
+	def get_opponent(self, player):  # Get the opposite player
 		return BLACK if player == WHITE else WHITE
 
 	def get_board_features(self, current_player):

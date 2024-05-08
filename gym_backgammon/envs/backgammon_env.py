@@ -41,28 +41,6 @@ class BackgammonEnv(gym.Env):
 	def load_state(self, state):
 		game_state, self.current_agent, self.counter = state
 		self.game.restore_state(game_state)
-		
-	# def step(self, action):
-	# 	self.game.execute_play(self.current_agent, action)
-	#
-	# 	# get the board representation from the opponent player perspective (the current player has already performed the move)
-	# 	observation = self.game.get_board_features(self.game.get_opponent(self.current_agent))
-	#
-	# 	reward = 0
-	# 	done = False
-	#
-	# 	winner = self.game.get_winner()  # 0 for white, 1 for black, None for none
-	#
-	# 	if winner is not None or self.counter > self.max_length_episode:
-	# 		# practical-issues-in-temporal-difference-learning, pag.3
-	# 		# ...leading to a final reward signal z. In the simplest case, z = 1 if White wins and z = 0 if Black wins
-	# 		if winner == WHITE:
-	# 			reward = 1
-	# 		done = True
-	#
-	# 	self.counter += 1
-	#
-	# 	return observation, reward, done, winner
 	
 	def step(self, action):
 		# Simplified version of the step method, which just return reward, and gives 2 points in case of gammon
@@ -120,12 +98,18 @@ class BackgammonEnv(gym.Env):
 			self.viewer.close()
 			self.viewer = None
 
+	def get_current_agent(self):
+		return self.current_agent
 	def get_valid_actions(self, roll):
+		
 		return self.game.get_valid_plays(self.current_agent, roll)
 
 	def set_and_get_opponent_agent(self):
 		self.current_agent = self.game.get_opponent(self.current_agent)
 		return self.current_agent
+	
+	def set_current_agent(self, agent):
+		self.current_agent = agent
 
 
 class BackgammonEnvPixel(BackgammonEnv):
