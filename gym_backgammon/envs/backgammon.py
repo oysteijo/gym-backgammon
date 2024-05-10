@@ -1382,51 +1382,6 @@ class Backgammon:
 				player_positions[player_color].append(board_position)
 		return player_positions
 	
-	def prepare_pub_eval_state_for_color(self,
-	                                     color  # color for value 0 or 1
-	                                     ):
-		import torch
-		x = torch.zeros(28, dtype=torch.float32)
-		
-		x[0] = self.bar[1-color]  # opponent
-		x[25] = self.bar[color]
-		total_white = self.bar[0] + self.off[0]
-		total_black = self.bar[1] + self.off[1]
-		
-		for board_position, (checkers, player_color) in enumerate(self.board):
-			if player_color == 0:
-				total_white += checkers
-			elif player_color == 1:
-				total_black += checkers
-			elif player_color is None:
-				if checkers != 0:
-					raise ValueError("Invalid board state")
-			else:
-				raise NotImplementedError
-			
-			if color == 0:
-				if player_color == color:  # our color is positive
-					x[1 + board_position] = checkers
-				else:   # opponent color is negative
-					x[1 + board_position] = -checkers
-					
-			elif color == 1:  # if color is black, we need to flip the board for the linear model to work i guess
-				if player_color == color:  # our color is positive
-					x[24 - board_position] = checkers
-				else:   # opponent color is negative
-					x[24 - board_position] = -checkers
-			else:
-				raise NotImplementedError
-				
-		x[26] = self.off[color]
-		x[27] = self.off[1-color]
-		
-		if total_white != 15 or total_black != 15:
-			raise ValueError("Invalid board state")
-		
-		return x
-		
-	
 	def get_valid_plays(self, player, roll):
 		valid_plays = set()
 		top_valid_plays = set()
