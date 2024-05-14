@@ -1461,15 +1461,39 @@ class Backgammon:
 		self.board, self.bar, self.off, self.players_positions = old_state.board[:], old_state.bar[:], old_state.off[:], old_state.players_positions[:]
 		self.state = BackgammonState(board=self.board, bar=self.bar, off=self.off, players_positions=self.players_positions)
 
+	# def get_reward(self):
+	# 	# This version supports only single-point and double-point win
+	# 	if self.off[WHITE] == 15:  # If white has taken off all pieces
+	# 		if self.off[BLACK] == 0:  # if black didn't take of any. gammon case
+	# 			return [2, 0]
+	# 		else:
+	# 			return [1, 0]
+	# 	elif self.off[BLACK] == 15:
+	# 		if self.off[WHITE] == 0:  # gammon case
+	# 			return [0, 2]
+	# 		else:
+	# 			return [0, 1]
+	# 	else:
+	# 		return [0, 0]
+	
 	def get_reward(self):
-		if self.off[WHITE] == 15:
-			if self.off[BLACK] == 0:  # gammon case
-				return [2, 0]
+		# This version supports single-point, double-point (gammon), and triple-point (backgammon) win
+		if self.off[WHITE] == 15:  # If white has taken off all pieces
+			if self.off[BLACK] == 0:  # if black didn't take of any. either gammon or backgammon case
+				does_black_have_pieces_in_home = any([black_pos in self.players_home_positions[WHITE] for black_pos in self.get_players_positions()[1]])
+				if does_black_have_pieces_in_home:
+					return [3, 0]
+				else:
+					return [2, 0]
 			else:
 				return [1, 0]
 		elif self.off[BLACK] == 15:
-			if self.off[WHITE] == 0:  # gammon case
-				return [0, 2]
+			if self.off[WHITE] == 0:
+				does_white_have_pieces_in_home = any([white_pos in self.players_home_positions[BLACK] for white_pos in self.get_players_positions()[0]])
+				if does_white_have_pieces_in_home:
+					return [0, 3]
+				else:
+					return [0, 2]
 			else:
 				return [0, 1]
 		else:
