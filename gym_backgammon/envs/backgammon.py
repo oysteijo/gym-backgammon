@@ -1452,9 +1452,12 @@ class Backgammon:
 
 			assert_board(action=action, board=self.board, bar=self.bar, off=self.off, game=self, old_board=tmp)
 
+	def state_to_string(self):
+		return (''.join([f"{num},2," if color is None else f"{num},{color}," for (num, color) in self.board])
+		        + f"{self.bar[0]},{self.bar[1]},{self.off[0]},{self.off[1]}")
+		
 	def save_state(self):
 		# Careful - This does not save the env counter
-		
 		return BackgammonState(board=self.board[:], bar=self.bar[:], off=self.off[:], players_positions=self.players_positions[:])
 
 	def restore_state(self, old_state):
