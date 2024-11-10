@@ -32,7 +32,7 @@ Given the current state of the board, a roll of the dice, and the current player
 ---
 ## <a name="installation"></a>Installation
 ```
-git clone https://github.com/dellalibera/gym-backgammon.git
+git clone https://github.com/ndvbd/gym-backgammon.git
 cd gym-backgammon/
 pip3 install -e .
 ```

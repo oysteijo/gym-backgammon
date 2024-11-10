@@ -13,116 +13,117 @@ SCREEN_H = 500
 
 
 class BackgammonEnv(gym.Env):
-    metadata = {'render.modes': ['human', 'rgb_array', 'state_pixels']}
+	metadata = {'render.modes': ['human', 'rgb_array', 'state_pixels']}
 
-    def __init__(self):
-        self.game = Game()
-        self.current_agent = None
+	def __init__(self):
+		self.game = Game()  # backgammon.py
+		self.current_agent = None
 
-        low = np.zeros((198, 1))
-        high = np.ones((198, 1))
+		low = np.zeros((198, 1))
+		high = np.ones((198, 1))
 
-        for i in range(3, 97, 4):
-            high[i] = 6.0
-        high[96] = 7.5
+		for i in range(3, 97, 4):
+			high[i] = 6.0
+		high[96] = 7.5
 
-        for i in range(101, 195, 4):
-            high[i] = 6.0
-        high[194] = 7.5
+		for i in range(101, 195, 4):
+			high[i] = 6.0
+		high[194] = 7.5
 
-        self.observation_space = Box(low=low, high=high)
-        self.counter = 0
-        self.max_length_episode = 10000
-        self.viewer = None
+		self.observation_space = Box(low=low, high=high)
+		self.counter = 0   # number of steps taken in the current episode
+		self.max_length_episode = 10000
+		self.viewer = None
 
-    def step(self, action):
-        self.game.execute_play(self.current_agent, action)
+	def save_state(self):
+		return self.game.save_state(), self.current_agent, self.counter
+	
+	def load_state(self, state):
+		game_state, self.current_agent, self.counter = state
+		self.game.restore_state(game_state)
+	
+	def step(self, action):
+		# Simplified version of the step method, which just return reward, and gives 2 points in case of gammon
+		self.game.execute_play(self.current_agent, action)
+		self.counter += 1
+		
+		# get the board representation from the opponent player perspective (the current player has already performed the move)
+		observation = self.game.get_board_features(self.game.get_opponent(self.current_agent))
+		
+		return observation, self.game.get_reward()
 
-        # get the board representation from the opponent player perspective (the current player has already performed the move)
-        observation = self.game.get_board_features(self.game.get_opponent(self.current_agent))
+	def reset(self):
+		# roll the dice
+		roll = randint(1, 6), randint(1, 6)
 
-        reward = 0
-        done = False
+		# roll the dice until they are different
+		while roll[0] == roll[1]:
+			roll = randint(1, 6), randint(1, 6)
 
-        winner = self.game.get_winner()
+		# set the current agent
+		if roll[0] > roll[1]:
+			self.current_agent = WHITE
+			roll = (-roll[0], -roll[1])
+		else:
+			self.current_agent = BLACK
 
-        if winner is not None or self.counter > self.max_length_episode:
-            # practical-issues-in-temporal-difference-learning, pag.3
-            # ...leading to a final reward signal z. In the simplest case, z = 1 if White wins and z = 0 if Black wins
-            if winner == WHITE:
-                reward = 1
-            done = True
+		self.game = Game()
+		self.counter = 0
 
-        self.counter += 1
+		return self.current_agent, roll, self.game.get_board_features(self.current_agent)
 
-        return observation, reward, done, winner
+	def render(self, mode='human'):
+		assert mode in ['human', 'rgb_array', 'state_pixels'], print(mode)
 
-    def reset(self):
-        # roll the dice
-        roll = randint(1, 6), randint(1, 6)
+		if mode == 'human':
+			self.game.render()
+			return True
+		else:
+			if self.viewer is None:
+				self.viewer = Viewer(SCREEN_W, SCREEN_H)
 
-        # roll the dice until they are different
-        while roll[0] == roll[1]:
-            roll = randint(1, 6), randint(1, 6)
+			if mode == 'rgb_array':
+				width = SCREEN_W
+				height = SCREEN_H
 
-        # set the current agent
-        if roll[0] > roll[1]:
-            self.current_agent = WHITE
-            roll = (-roll[0], -roll[1])
-        else:
-            self.current_agent = BLACK
+			else:
+				assert mode == 'state_pixels', print(mode)
+				width = STATE_W
+				height = STATE_H
 
-        self.game = Game()
-        self.counter = 0
+			return self.viewer.render(board=self.game.board, bar=self.game.bar, off=self.game.off, state_w=width, state_h=height)
 
-        return self.current_agent, roll, self.game.get_board_features(self.current_agent)
+	def close(self):
+		if self.viewer:
+			self.viewer.close()
+			self.viewer = None
 
-    def render(self, mode='human'):
-        assert mode in ['human', 'rgb_array', 'state_pixels'], print(mode)
+	def get_current_agent(self):
+		return self.current_agent
+	def get_valid_actions(self, roll):
+		
+		return self.game.get_valid_plays(self.current_agent, roll)
 
-        if mode == 'human':
-            self.game.render()
-            return True
-        else:
-            if self.viewer is None:
-                self.viewer = Viewer(SCREEN_W, SCREEN_H)
-
-            if mode == 'rgb_array':
-                width = SCREEN_W
-                height = SCREEN_H
-
-            else:
-                assert mode == 'state_pixels', print(mode)
-                width = STATE_W
-                height = STATE_H
-
-            return self.viewer.render(board=self.game.board, bar=self.game.bar, off=self.game.off, state_w=width, state_h=height)
-
-    def close(self):
-        if self.viewer:
-            self.viewer.close()
-            self.viewer = None
-
-    def get_valid_actions(self, roll):
-        return self.game.get_valid_plays(self.current_agent, roll)
-
-    def get_opponent_agent(self):
-        self.current_agent = self.game.get_opponent(self.current_agent)
-        return self.current_agent
+	def set_and_get_opponent_agent(self):
+		self.current_agent = self.game.get_opponent(self.current_agent)
+		return self.current_agent
+	
+	def set_current_agent(self, agent):
+		self.current_agent = agent
 
 
 class BackgammonEnvPixel(BackgammonEnv):
 
-    def __init__(self):
-        super(BackgammonEnvPixel, self).__init__()
-        self.observation_space = Box(low=0, high=255, shape=(STATE_H, STATE_W, 3), dtype=np.uint8)
+	def __init__(self):
+		super(BackgammonEnvPixel, self).__init__()
+		self.observation_space = Box(low=0, high=255, shape=(STATE_H, STATE_W, 3), dtype=np.uint8)
 
-    def step(self, action):
-        observation, reward, done, winner = super().step(action)
-        observation = self.render(mode='state_pixels')
-        return observation, reward, done, winner
+	def step(self, action):
+		observation, reward, done, winner = super().step(action)
+		observation = self.render(mode='state_pixels')
+		return observation, reward, done, winner
 
-    def reset(self):
-        current_agent, roll, observation = super().reset()
-        observation = self.render(mode='state_pixels')
-        return current_agent, roll, observation
+	def reset(self):
+		current_agent, roll, observation = super().reset()
+		observation = self.render(mode='state_pixels')
+		return current_agent, roll, observation
